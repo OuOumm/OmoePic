@@ -1,0 +1,35 @@
+{
+  "name": "omoe-pic",
+  "version": "1.0.0",
+  "description": "基于 Fastify 5.6.2 和 TypeScript 的图床后端",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/app.ts",
+    "build": "tsc",
+    "start": "node dist/app.js",
+    "lint": "eslint src/**/*.ts",
+    "lint:fix": "eslint src/**/*.ts --fix"
+  },
+  "dependencies": {
+    "@fastify/basic-auth": "latest",
+    "@fastify/cors": "^11.1.0",
+    "@fastify/multipart": "latest",
+    "@fastify/rate-limit": "latest",
+    "@fastify/static": "latest",
+    "@sapphire/snowflake": "latest",
+    "better-sqlite3": "latest",
+    "fastify": "5.6.2",
+    "ioredis": "latest",
+    "pino-pretty": "^13.1.2",
+    "webdav": "latest"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "latest",
+    "@types/node": "latest",
+    "@typescript-eslint/eslint-plugin": "latest",
+    "@typescript-eslint/parser": "latest",
+    "eslint": "latest",
+    "tsx": "latest",
+    "typescript": "latest"
+  }
+}

@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OmoePic - 图片上传服务</title>
+    <meta name="description" content="简单易用的图片上传服务，支持多方式上传和智能管理">
+    
+    <!-- TailwindCSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#f0f9ff',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Dexie.js CDN -->
+    <script src="https://unpkg.com/dexie@4.2.1/dist/dexie.js"></script>
+    <!-- crypto.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    
+    <!-- 自定义样式 -->
+    <style>
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f8fafc;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --border-color: #e2e8f0;
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+        
+        .dark {
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --border-color: #334155;
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.1);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+        
+        /* 新拟态风格 */
+        .neumorphism {
+            background: var(--bg-primary);
+            border-radius: 16px;
+            box-shadow: 
+                8px 8px 16px rgba(0, 0, 0, 0.1),
+                -8px -8px 16px rgba(255, 255, 255, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .dark .neumorphism {
+            box-shadow: 
+                8px 8px 16px rgba(0, 0, 0, 0.3),
+                -8px -8px 16px rgba(255, 255, 255, 0.05);
+        }
+        
+        /* 上传区域样式 */
+        .upload-area {
+            transition: all 0.3s ease;
+            border: 2px dashed var(--border-color);
+        }
+        
+        .upload-area.dragover {
+            border-color: #3b82f6;
+            background-color: rgba(59, 130, 246, 0.05);
+        }
+        
+        /* 卡片动画 */
+        .upload-card {
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        /* 进度条样式 */
+        .progress-bar {
+            transition: width 0.3s ease;
+        }
+        
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+            .upload-area {
+                padding: 2rem 1rem;
+            }
+            
+            /* 移动端导航栏优化 */
+            .mobile-menu {
+                display: block;
+            }
+            
+            .desktop-menu {
+                display: none;
+            }
+            
+            /* 移动端上传区域优化 */
+            .upload-area {
+                margin: 0 -1rem;
+                border-radius: 0;
+                padding: 3rem 1rem;
+            }
+            
+            /* 移动端卡片优化 */
+            .upload-card {
+                margin: 0 -1rem;
+                border-radius: 0;
+                border-left: none;
+                border-right: none;
+            }
+            
+            /* 移动端按钮组优化 */
+            .action-buttons {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+            
+            .action-buttons button {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+        
+        /* 移动端菜单样式 */
+        .mobile-menu {
+            display: none;
+        }
+        
+        .mobile-menu.active {
+            display: block;
+            position: fixed;
+            top: 4rem;
+            left: 0;
+            right: 0;
+            background: var(--bg-primary);
+            border-bottom: 1px solid var(--border-color);
+            z-index: 50;
+        }
+        
+        .mobile-menu-item {
+            display: block;
+            padding: 1rem;
+            text-align: center;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-primary);
+            text-decoration: none;
+        }
+        
+        .mobile-menu-item:last-child {
+            border-bottom: none;
+        }
+        
+        .mobile-menu-item.active {
+            background: var(--bg-secondary);
+            color: #3b82f6;
+        }
+        
+        /* 移动端汉堡菜单按钮 */
+        .hamburger {
+            display: none;
+            flex-direction: column;
+            justify-content: space-between;
+            width: 24px;
+            height: 18px;
+            cursor: pointer;
+        }
+        
+        .hamburger span {
+            display: block;
+            height: 2px;
+            width: 100%;
+            background: currentColor;
+            transition: all 0.3s ease;
+        }
+        
+        .hamburger.active span:nth-child(1) {
+            transform: rotate(45deg) translate(5px, 5px);
+        }
+        
+        .hamburger.active span:nth-child(2) {
+            opacity: 0;
+        }
+        
+        .hamburger.active span:nth-child(3) {
+            transform: rotate(-45deg) translate(7px, -6px);
+        }
+        
+        @media (max-width: 768px) {
+            .hamburger {
+                display: flex;
+            }
+            
+            .desktop-menu {
+                display: none;
+            }
+            
+            .mobile-menu {
+                display: none;
+            }
+            
+            .mobile-menu.active {
+                display: block;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 transition-colors duration-300 min-h-screen">
+    <!-- 导航栏 -->
+    <nav class="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <h1 class="text-xl font-bold text-gray-900 dark:text-white">OmoePic</h1>
+                    </div>
+                    <!-- 桌面端菜单 -->
+                    <div class="hidden md:ml-6 md:flex md:space-x-8 desktop-menu">
+                        <a href="/" class="text-gray-900 dark:text-white px-3 py-2 text-sm font-medium border-b-2 border-blue-500">上传</a>
+                        <a href="/history.html" class="text-gray-500 dark:text-gray-300 hover:text-gray-700 dark:hover:text-white px-3 py-2 text-sm font-medium">历史记录</a>
+                        <a href="/admin.html" class="text-gray-500 dark:text-gray-300 hover:text-gray-700 dark:hover:text-white px-3 py-2 text-sm font-medium">管理后台</a>
+                    </div>
+                    <!-- 移动端汉堡菜单 -->
+                    <div class="md:hidden ml-4">
+                        <div class="hamburger" id="mobileMenuToggle">
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                        </div>
+                    </div>
+                </div>
+                <!-- 移动端菜单 -->
+                <div class="mobile-menu" id="mobileMenu">
+                    <a href="/" class="mobile-menu-item active">上传</a>
+                    <a href="/history.html" class="mobile-menu-item">历史记录</a>
+                    <a href="/admin.html" class="mobile-menu-item">管理后台</a>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <!-- 日夜切换按钮 -->
+                    <button id="themeToggle" class="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path id="sunIcon" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                            <path id="moonIcon" class="hidden" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                        </svg>
+                    </button>
+                    
+                    <!-- 用户令牌显示 -->
+                    <div class="hidden md:flex items-center space-x-2">
+                        <span class="text-sm text-gray-600 dark:text-gray-400">用户令牌:</span>
+                        <code id="userToken" class="text-xs bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-gray-800 dark:text-gray-200">未设置</code>
+                        <button id="copyToken" class="text-blue-500 hover:text-blue-700 text-sm">复制</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主要内容 -->
+    <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <div class="px-4 py-6 sm:px-0">
+            <!-- 上传区域 -->
+            <div class="neumorphism p-8 mb-8">
+                <div class="text-center mb-6">
+                    <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">上传图片</h2>
+                    <p class="text-gray-600 dark:text-gray-400">支持拖拽、粘贴、点击多种上传方式</p>
+                </div>
+                
+                <!-- 上传区域 -->
+                <div id="uploadArea" class="upload-area rounded-2xl p-12 text-center cursor-pointer">
+                    <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                        <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    <div class="mt-4">
+                        <p class="text-lg font-medium text-gray-900 dark:text-white">拖拽图片到此处</p>
+                        <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">或 <span class="text-blue-500 font-medium">点击选择文件</span></p>
+                        <p class="text-xs text-gray-500 dark:text-gray-500 mt-2">支持 JPG, PNG, GIF, WebP, BMP 格式，最大 10MB</p>
+                    </div>
+                    <input type="file" id="fileInput" class="hidden" multiple accept="image/*">
+                </div>
+                
+                <!-- 上传进度 -->
+                <div id="uploadProgress" class="mt-6 hidden">
+                    <div class="flex justify-between text-sm text-gray-600 dark:text-gray-400 mb-2">
+                        <span>上传进度</span>
+                        <span id="progressText">0%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                        <div id="progressBar" class="progress-bar bg-blue-500 h-2 rounded-full" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 上传结果区域 -->
+            <div id="uploadResults" class="space-y-4">
+                <!-- 上传结果卡片会动态添加到这里 -->
+            </div>
+        </div>
+    </main>
+
+    <!-- 脚本引入 -->
+    <script src="./js/config.js"></script>
+    <script src="./js/database.js"></script>
+    <script src="./js/upload.js"></script>
+    <script src="./js/ui.js"></script>
+    <script src="./js/main.js"></script>
+</body>
+</html>
